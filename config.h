@@ -7,7 +7,7 @@
  */
 static char *font = "mono:pixelsize=14:antialias=true:autohint=true";
 static char *font2[] = { "JoyPixels:pixelsize=10:antialias=true:autohint=true" };
-static int borderpx = 2;
+static int borderpx = 25;
 
 /*
  * What program is execed by st depends of these precedence rules:
@@ -55,7 +55,7 @@ static double maxlatency = 33;
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
  * attribute.
  */
-static unsigned int blinktimeout = 800;
+static unsigned int blinktimeout = 600;
 
 /*
  * interval (in milliseconds) between each successive call to ximspot. This
@@ -111,31 +111,31 @@ unsigned int tabspaces = 8;
 float alpha = 0.8;
 
 /* Terminal colors (16 first used in escape sequence) */
-static const char *colorname[] = {
-	"#282828", /* hard contrast: #1d2021 / soft contrast: #32302f */
-	"#cc241d",
-	"#98971a",
-	"#d79921",
-	"#458588",
-	"#b16286",
-	"#689d6a",
-	"#a89984",
-	"#928374",
-	"#fb4934",
-	"#b8bb26",
-	"#fabd2f",
-	"#83a598",
-	"#d3869b",
-	"#8ec07c",
-	"#ebdbb2",
-	[255] = 0,
-	/* more colors can be added after 255 to use with DefaultXX */
-	"#add8e6", /* 256 -> cursor */
-	"#555555", /* 257 -> rev cursor*/
-	"#282828", /* 258 -> bg */
-	"#ebdbb2", /* 259 -> fg */
+static const char* colorname[] = {
+    /* 8 normal colors */
+    "#3b4252", /* black   */
+    "#bf616a", /* red     */
+    "#a3be8c", /* green   */
+    "#ebcb8b", /* yellow  */
+    "#81a1c1", /* blue    */
+    "#b48ead", /* magenta */
+    "#88c0d0", /* cyan    */
+    "#e5e9f0", /* white   */
+    /* 8 bright colors */
+    "#4c566a",	/* black   */
+    "#bf616a",	/* red     */
+    "#a3be8c",	/* green   */
+    "#ebcb8b",	/* yellow  */
+    "#81a1c1",	/* blue    */
+    "#b48ead",	/* magenta */
+    "#8fbcbb",	/* cyan    */
+    "#eceff4",	/* white   */
+    [255] = 0, 
+	 "#add8e6", /* 256 -> cursor */
+    "#555555",	/* 257 -> rev cursor*/
+    "#2e3440",	/* background */
+    "#d8dee9",	/* foreground */
 };
-
 
 /*
  * Default colors (colorname index)
@@ -147,13 +147,21 @@ unsigned int defaultcs = 256;
 unsigned int defaultrcs = 257;
 
 /*
- * Default shape of cursor
- * 2: Block ("█")
- * 4: Underline ("_")
- * 6: Bar ("|")
- * 7: Snowman ("☃")
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps-SP-q.1D81
+ * Default style of cursor
+ * 0: Blinking block
+ * 1: Blinking block (default)
+ * 2: Steady block ("â–ˆ")
+ * 3: Blinking underline
+ * 4: Steady underline ("_")
+ * 5: Blinking bar
+ * 6: Steady bar ("|")
+ * 7: Blinking st cursor
+ * 8: Steady st cursor
  */
-static unsigned int cursorshape = 2;
+// static unsigned int cursorshape = 5;
+static unsigned int cursorstyle = 5;
+static Rune stcursor = 0x2603; /* snowman (U+2603) */
 
 /*
  * Default columns and rows numbers
@@ -224,7 +232,7 @@ static MouseShortcut mshortcuts[] = {
 
 /* Internal keyboard shortcuts. */
 #define MODKEY Mod1Mask
-#define TERMMOD (Mod1Mask|ShiftMask)
+#define TERMMOD (ControlMask|ShiftMask)
 
 MouseKey mkeys[] = {
 	/* button               mask            function        argument */
@@ -246,11 +254,11 @@ static Shortcut shortcuts[] = {
 	{ XK_ANY_MOD,           XK_Print,       printsel,       {.i =  0} },
 	{ TERMMOD,              XK_Prior,       zoom,           {.f = +1} },
 	{ TERMMOD,              XK_Next,        zoom,           {.f = -1} },
-	{ MODKEY,               XK_Home,        zoomreset,      {.f =  0} },
-	{ MODKEY,               XK_c,           clipcopy,       {.i =  0} },
+	{ TERMMOD,              XK_Home,        zoomreset,      {.f =  0} },
+	{ TERMMOD,              XK_C,           clipcopy,       {.i =  0} },
 	{ ShiftMask,            XK_Insert,      clippaste,      {.i =  0} },
-	{ MODKEY,               XK_v,           clippaste,      {.i =  0} },
-	{ XK_ANY_MOD,		Button2,	selpaste,	{.i =  0} },
+	{ TERMMOD,              XK_V,           clippaste,      {.i =  0} },
+	{ XK_ANY_MOD,           Button2,        selpaste,       {.i =  0} },
 	{ MODKEY,               XK_Num_Lock,    numlock,        {.i =  0} },
 	{ MODKEY,               XK_Control_L,   iso14755,       {.i =  0} },
 	{ ShiftMask,            XK_Page_Up,     kscrollup,      {.i = -1} },
@@ -263,8 +271,8 @@ static Shortcut shortcuts[] = {
 	{ MODKEY,               XK_Down,        kscrolldown,    {.i =  1} },
 	{ MODKEY,               XK_u,           kscrollup,      {.i = -1} },
 	{ MODKEY,               XK_d,           kscrolldown,    {.i = -1} },
-	{ MODKEY,		XK_s,		changealpha,	{.f = -0.05} },
-	{ MODKEY,		XK_a,		changealpha,	{.f = +0.05} },
+	{ MODKEY,               XK_s,           changealpha,    {.f = -0.05} },
+	{ MODKEY,               XK_a,           changealpha,    {.f = +0.05} },
 	{ TERMMOD,              XK_Up,          zoom,           {.f = +1} },
 	{ TERMMOD,              XK_Down,        zoom,           {.f = -1} },
 	{ TERMMOD,              XK_K,           zoom,           {.f = +1} },
